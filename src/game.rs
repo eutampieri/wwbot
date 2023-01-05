@@ -14,11 +14,32 @@ static TOPICS: Lazy<Vec<Vec<String>>> = Lazy::new(|| {
     .expect("Invalid JSON provided")
 });
 
-pub static GAME_MANAGER: Lazy<std::sync::RwLock<GameManager>> =
-    Lazy::new(|| std::sync::RwLock::new(GameManager {}));
+pub static GAME_MANAGER: Lazy<std::sync::RwLock<GameManager>> = Lazy::new(|| {
+    std::sync::RwLock::new(GameManager {
+        games: Default::default(),
+        next_index: 0,
+    })
+});
 
-pub struct GameManager {}
-impl GameManager {}
+pub type SharedGame = std::sync::Arc<std::sync::Mutex<Game>>;
+
+pub struct GameManager {
+    games: std::collections::HashMap<usize, SharedGame>,
+    next_index: usize,
+}
+impl GameManager {
+    pub fn create_game(&mut self) -> (SharedGame, usize) {
+        let current_index = self.next_index;
+        self.next_index += 1;
+        let game = std::sync::Arc::new(std::sync::Mutex::new(Game { topics: draw() }));
+        self.games.insert(current_index, game.clone());
+        (game, current_index)
+    }
+}
+
+pub struct Game {
+    topics: [String; 2],
+}
 
 fn draw() -> [String; 2] {
     let mut rng = thread_rng();

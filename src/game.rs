@@ -57,7 +57,7 @@ impl GameManager {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum GameStatus {
     NotStarted,
     DiscussionTime,
@@ -89,7 +89,7 @@ impl Game {
                 .players
                 .iter()
                 .position(|x| *x == player)
-                .ok_or_else(|| "Player not found")?;
+                .ok_or("Player not found")?;
             self.players.remove(index);
             Ok(())
         } else {
@@ -110,9 +110,7 @@ impl Game {
     }
 
     pub fn get_status(&self) -> GameStatus {
-        if self.votes.len() != self.players.len()
-            && self.votes.iter().fold(true, |acc, x| acc && x.is_some())
-        {
+        if self.votes.len() != self.players.len() && self.votes.iter().all(|x| x.is_some()) {
             GameStatus::RunEnded
         } else if self
             .start_time
@@ -132,7 +130,7 @@ impl Game {
             .players
             .iter()
             .position(|x| *x == voter)
-            .ok_or_else(|| "Player not found")?;
+            .ok_or("Player not found")?;
         let votee = self.players.iter().position(|x| *x == voted);
         self.votes[voter] = votee;
         Ok(())
@@ -140,10 +138,8 @@ impl Game {
 
     fn wolf_won(&self) -> bool {
         let mut counts = vec![0; self.players.len()];
-        for vote in &self.votes {
-            if let Some(vote) = vote {
-                counts[*vote] += 1;
-            }
+        for vote in self.votes.iter().flatten() {
+            counts[*vote] += 1;
         }
         let max = counts.iter().max().unwrap();
         counts[self.wolf.unwrap()] == *max

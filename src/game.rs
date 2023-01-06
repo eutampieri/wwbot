@@ -21,24 +21,55 @@ pub static GAME_MANAGER: Lazy<std::sync::RwLock<GameManager>> = Lazy::new(|| {
     })
 });
 
-pub type SharedGame = std::sync::Arc<std::sync::Mutex<Game>>;
+pub type SharedGame<'a> = std::sync::Arc<std::sync::Mutex<Game<'a>>>;
 
-pub struct GameManager {
-    games: std::collections::HashMap<usize, SharedGame>,
+pub struct GameManager<'a> {
+    games: std::collections::HashMap<usize, SharedGame<'a>>,
     next_index: usize,
 }
-impl GameManager {
-    pub fn create_game(&mut self) -> (SharedGame, usize) {
+impl<'a> GameManager<'a> {
+    pub fn create_game(&mut self) -> (SharedGame<'a>, usize) {
         let current_index = self.next_index;
         self.next_index += 1;
-        let game = std::sync::Arc::new(std::sync::Mutex::new(Game { topics: draw() }));
+        let game = std::sync::Arc::new(std::sync::Mutex::new(Game {
+            topics: draw(),
+            players: vec![],
+            wolf: None,
+        }));
         self.games.insert(current_index, game.clone());
         (game, current_index)
     }
 }
 
-pub struct Game {
+pub struct Game<'a> {
     topics: [String; 2],
+    players: Vec<String>,
+    wolf: Option<&'a str>,
+}
+
+impl<'a> Game<'a> {
+    pub fn game_started(&self) -> bool {
+        self.wolf.is_some()
+    }
+
+    pub fn add_player(&mut self, player: String) -> Result<(), &'static str> {
+        if self.game_started() {
+            Err("Game was already started!")
+        } else {
+            self.players.push(player);
+            Ok(())
+        }
+    }
+
+    pub fn start_game(&'a mut self) -> Result<(), &'static str> {
+        if self.players.len() < 3 {
+            return Err("Game with less than three players cannot be started");
+        }
+        let mut rng = thread_rng();
+        let wolf = self.players.choose(&mut rng).unwrap();
+        self.wolf = Some(wolf.as_str());
+        Ok(())
+    }
 }
 
 fn draw() -> [String; 2] {

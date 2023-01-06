@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use rand::seq::{IteratorRandom, SliceRandom};
-use rand::thread_rng;
+use rand::{random, thread_rng};
 
 static TOPICS: Lazy<Vec<Vec<String>>> = Lazy::new(|| {
     let json = (|| {
@@ -17,27 +17,40 @@ static TOPICS: Lazy<Vec<Vec<String>>> = Lazy::new(|| {
 pub static GAME_MANAGER: Lazy<std::sync::RwLock<GameManager>> = Lazy::new(|| {
     std::sync::RwLock::new(GameManager {
         games: Default::default(),
-        next_index: 0,
     })
 });
 
 pub type SharedGame<'a> = std::sync::Arc<std::sync::Mutex<Game<'a>>>;
+pub type GameId = u64;
 
 pub struct GameManager<'a> {
-    games: std::collections::HashMap<usize, SharedGame<'a>>,
-    next_index: usize,
+    games: std::collections::HashMap<GameId, SharedGame<'a>>,
 }
+
 impl<'a> GameManager<'a> {
-    pub fn create_game(&mut self) -> (SharedGame<'a>, usize) {
-        let current_index = self.next_index;
-        self.next_index += 1;
+    fn game_exists(&self, id: GameId) -> bool {
+        self.games.contains_key(&id)
+    }
+
+    pub fn create_game(&mut self) -> (SharedGame<'a>, GameId) {
+        let mut index = random();
+        while self.game_exists(index) {
+            index = random();
+        }
+
         let game = std::sync::Arc::new(std::sync::Mutex::new(Game {
             topics: draw(),
             players: vec![],
             wolf: None,
         }));
-        self.games.insert(current_index, game.clone());
-        (game, current_index)
+        self.games.insert(index, game.clone());
+        (game, index)
+    }
+    pub fn get_game(&self, id: GameId) -> Option<SharedGame<'a>> {
+        self.games.get(&id).cloned()
+    }
+    pub fn delete_game(&mut self, id: GameId) {
+        self.games.remove(&id);
     }
 }
 
